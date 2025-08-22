@@ -32,7 +32,6 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "supertest"
         update-types: ["version-update:semver-major"]
-
   # Atualiza dependências do GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -52,3 +51,4 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
+
