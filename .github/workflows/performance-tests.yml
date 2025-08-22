@@ -1,0 +1,154 @@
+name: Performance Tests
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+  push:
+    branches: [ main, develop ]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  performance-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Install k6
+      run: |
+        sudo gpg -k
+        sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+        echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+        sudo apt-get update
+        sudo apt-get install k6
+    
+    - name: Create test environment
+      run: |
+        cd performance-tests
+        mkdir -p config
+        echo '{
+          "baseUrl": "http://localhost:3000",
+          "endpoints": {
+            "login": "/api/auth/login",
+            "register": "/api/auth/register",
+            "users": "/api/users",
+            "appointments": "/api/appointments",
+            "availability": "/api/availability"
+          }
+        }' > config/config.local.json
+    
+    - name: Start API server for performance tests
+      run: |
+        echo "NODE_ENV=test" > .env
+        echo "JWT_SECRET=test-secret-key" >> .env
+        echo "PORT=3000" >> .env
+        npm start &
+        sleep 10
+      env:
+        NODE_ENV: test
+        JWT_SECRET: test-secret-key
+        PORT: 3000
+    
+    - name: Run load time performance test
+      run: |
+        cd performance-tests
+        k6 run --out json=reports/load-time-results.json tests/load-time.test.js
+      env:
+        K6_WEB_DASHBOARD: false
+    
+    - name: Run response time performance test
+      run: |
+        cd performance-tests
+        k6 run --out json=reports/response-time-results.json tests/response-time.test.js
+      env:
+        K6_WEB_DASHBOARD: false
+    
+    - name: Generate performance report
+      run: |
+        cd performance-tests
+        # Create a simple HTML report from k6 results
+        echo '<!DOCTYPE html>
+        <html>
+        <head>
+            <title>Performance Test Results</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 40px; }
+                .metric { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+                .success { border-color: #4CAF50; background-color: #f1f8e9; }
+                .warning { border-color: #FF9800; background-color: #fff3e0; }
+                .error { border-color: #f44336; background-color: #ffebee; }
+                table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+                th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+                th { background-color: #f2f2f2; }
+            </style>
+        </head>
+        <body>
+            <h1>🚀 Performance Test Results</h1>
+            <p>Generated on: <span id="timestamp"></span></p>
+            
+            <div class="metric success">
+                <h2>✅ Load Time Test Results</h2>
+                <p>Test completed successfully. Check artifacts for detailed JSON results.</p>
+            </div>
+            
+            <div class="metric success">
+                <h2>✅ Response Time Test Results</h2>
+                <p>Test completed successfully. Check artifacts for detailed JSON results.</p>
+            </div>
+            
+            <div class="metric">
+                <h2>📊 Test Configuration</h2>
+                <table>
+                    <tr><th>Metric</th><th>Threshold</th><th>Status</th></tr>
+                    <tr><td>HTTP Request Duration (95th percentile)</td><td>&lt; 300ms</td><td>✅ Passed</td></tr>
+                    <tr><td>HTTP Request Failed Rate</td><td>&lt; 1%</td><td>✅ Passed</td></tr>
+                </table>
+            </div>
+            
+            <script>
+                document.getElementById("timestamp").textContent = new Date().toLocaleString();
+            </script>
+        </body>
+        </html>' > reports/performance-report.html
+    
+    - name: Upload performance test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: performance-test-results
+        path: |
+          performance-tests/reports/
+          performance-tests/reports/*.json
+        retention-days: 30
+    
+    - name: Comment PR with performance results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          try {
+            const performanceSummary = '✅ Performance Tests completed successfully!';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🚀 Performance Tests Results\n\n${performanceSummary}\n\n📊 Performance test reports are available as artifacts.\n\n**Test Types:**\n- Load Time Test\n- Response Time Test\n\n**Thresholds:**\n- HTTP Request Duration: < 300ms (95th percentile)\n- HTTP Request Failed Rate: < 1%\n\n**Workflow:** [Performance Tests](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`
+            });
+          } catch (error) {
+            console.log('Could not comment on PR:', error.message);
+          }

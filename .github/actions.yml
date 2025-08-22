@@ -1,0 +1,21 @@
+# Configuração global para GitHub Actions
+# Este arquivo define permissões e configurações padrão
+
+# Permissões para os workflows
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read
+  checks: write
+
+# Configurações de cache
+cache:
+  npm: true
+  node: true
+
+# Configurações de segurança
+security:
+  # Habilita análise de segurança
+  dependabot: true
+  # Habilita análise de código
+  code-scanning: true

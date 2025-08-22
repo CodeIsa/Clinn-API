@@ -1,0 +1,54 @@
+# Configuração do Dependabot para atualizações automáticas
+# https://docs.github.com/en/code-security/dependabot/automating-updates
+
+version: 2
+updates:
+  # Atualiza dependências do npm
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "@isabelle"
+    assignees:
+      - "@isabelle"
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "npm"
+    ignore:
+      # Ignora atualizações major que podem quebrar a API
+      - dependency-name: "express"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "mocha"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "chai"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "supertest"
+        update-types: ["version-update:semver-major"]
+
+  # Atualiza dependências do GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "@isabelle"
+    assignees:
+      - "@isabelle"
+    commit-message:
+      prefix: "ci"
+      prefix-development: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"

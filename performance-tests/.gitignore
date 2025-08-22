@@ -1,0 +1,23 @@
+# Arquivos de relatório de performance
+reports/
+*.json
+
+# Logs do k6
+*.log
+
+# Arquivos temporários
+*.tmp
+*.temp
+
+# Dados de teste
+test-data/
+
+# Configurações locais (não commitar)
+config/config.local.json
+
+# Node modules (se houver)
+node_modules/
+
+# Arquivos de ambiente
+.env
+.env.local
